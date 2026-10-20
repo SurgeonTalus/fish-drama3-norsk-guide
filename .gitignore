@@ -1,0 +1,10 @@
+# Store filer — lastes ned med ./installer.sh
+bin/
+modeller/
+
+# Generert output
+output/
+referanse/
+
+# Lokale hjelpeskripter
+.DS_Store
