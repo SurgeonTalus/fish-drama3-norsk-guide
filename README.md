@@ -187,6 +187,40 @@ presisjon og hvordan offloadingen virker.
 | Minnebruk | **6,9 GB** | 10,3 GB |
 | Disk lest for 33 s tale | 351 GB | 0 |
 
+### Sammenligning med en M3 Ultra
+
+[drama3-mac](https://github.com/JordiPosthumus/drama3-mac) av Jordi Posthumus er
+en egen **MLX**-port av Drama 3 med sterke resultater på **M3 Ultra med 512 GB
+RAM**. Modellen er der **fullt resident** i RAM, og den bruker Apples eget
+rammeverk i stedet for GGUF/ggml.
+
+| | **M3 Ultra + MLX** | **M1 Pro 16 GB + audio.cpp** |
+|---|---|---|
+| Modell i RAM | Fullt resident, 27,3 GB | Disk-offload, 6,9 GB |
+| Disk lest pr. 33 s | 0 | 351 GB |
+| **RTF** | **0,68** | **28,8** |
+
+**Forskjellen er ~42x**, men den skyldes **innstillingene og maskinen**, ikke
+modellen:
+
+1. På M3 Ultra er modellen resident — ingenting leses fra disk. På 16 GB er
+   disk-offloading **tvunget**, og derfor er 351 GB disklesing 75 % av tiden.
+2. M3 Ultra har rundt 800 GB/s minnebåndbredde mot rundt 200 GB/s for M1 Pro.
+3. MLX bruker `mx.compile` og fjerner CPU-dispatch-overhead som ggml betaler.
+4. drama3-mac beholder projeksjonene i **bf16** (slik som den offisielle
+   FP8-utgivelsen) og kvantiserer bare ekspertene. Q4_K_S kvantiserer også
+   ryggraden.
+
+På en M3 Ultra med nok RAM er drama3-mac klart raskere. På 16 GB finnes ikke
+det alternativet — modellen kan ikke holdes resident, så offloading er ikke
+en optimalisering men en nødvendighet.
+
+Flinke funn fra drama3-mac som er verdt å bruke:
+- **30 sekunders referanse med flere opptak** holder stemmen bedre enn ett
+  kort opptak (cosinus 0,939 mot 0,895)
+- **«Kald» sampling for fortelling:** `temperature 0.7, top_p 0.85`
+- **Aldri kvantiser projeksjonene** — det gir flytende gibberish
+
 ---
 
 ## Nyttig å vite
@@ -317,6 +351,7 @@ Metal bygger grafikk-kjernene sine. Det lagres og går raskere neste gang.
 | **pentacoxian-dev/drama3-small-GGUF** | Den lille modellen (IQ3_XXS) | [huggingface.co/pentacoxian-dev/drama3-small-GGUF](https://huggingface.co/pentacoxian-dev/drama3-small-GGUF) |
 | **PrismML-Eng/llama.cpp** | Prism MLs fork. Også nødvendig for Drama 3 i llama.cpp | [github.com/PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) |
 | **fish-speech** | Oppstream for modellen og codecen | [github.com/fishaudio/fish-speech](https://github.com/fishaudio/fish-speech) |
+| **drama3-mac** | MLX-port av Drama 3 for Mac. Raskeste Mac-alternativet, men krever nok RAM til at modellen blir resident (27,3 GB) | [github.com/JordiPosthumus/drama3-mac](https://github.com/JordiPosthumus/drama3-mac) |
 
 ### Alternativer for andre plattformer
 
