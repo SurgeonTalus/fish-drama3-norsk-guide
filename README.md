@@ -22,10 +22,13 @@ en Mac med 16 GB RAM. Vi målte **6,9 GB** i minnebruk under en lang tale.
 2. [Installasjon i 3 steg](#installasjon-i-3-steg)
 3. [Lage tale](#lage-tale)
 4. [Forskjell på modellene](#forskjell-på-modellene)
-5. [Verdien du får](#verdien-du-får)
-6. [Nyttig å vite](#nyttig-å-vite)
-7. [Ordbok](#ordbok)
-8. [Feilsøking](#feilsøking)
+5. [Sammenligning med CosyVoice3 og Chatterbox](#sammenligning-med-cosyvoice3-og-chatterbox)
+6. [Hvordan ekspert-offloading til SSD fungerer](#hvordan-ekspert-offloading-til-ssd-fungerer)
+7. [Lydeksempler](#lydeksempler)
+8. [Verdien du får](#verdien-du-får)
+9. [Nyttig å vite](#nyttig-å-vite)
+10. [Ordbok](#ordbok)
+11. [Feilsøking](#feilsøking)
 
 ---
 
@@ -160,13 +163,171 @@ Høre forskjellen på norsk:
 | Fil | Hva det er | Lengde |
 |---|---|---|
 | [`audio/norsk_full_q4k.wav`](audio/norsk_full_q4k.wav) | Q4_K_S, norsk kloning | 8,4 s |
-| [`audio/norsk_full_q4k_varianter.wav`](audio/norsk_full_q4k_varianter.wav) | Q4_K_S, norsk kloning (bedre kjøring) | 9,0 s |
+| [`audio/norsk_full_q4k_varianter.wav`](audio/norsk_full_q4k_varianter.wav) | Q4_K_S, norsk kloning (bedste kjøring, 18,2 % WER) | 9,0 s |
+| [`audio/cosyvoice_norsk.wav`](audio/cosyvoice_norsk.wav) | CosyVoice3 + norsk LoRA, norsk | 10,5 s |
+| [`audio/chatterbox_norsk.wav`](audio/chatterbox_norsk.wav) | Chatterbox v3, norsk | 7,5 s |
 | [`audio/norsk_small_ubrukelig.wav`](audio/norsk_small_ubrukelig.wav) | IQ3_XXS, norsk — ubrukelig | 9,3 s |
-| [`audio/engelsk_full_q4k.wav`](audio/engelsk_full_q4k.wav) | Q4_K_S, engelsk kloning | 33,1 s |
+| [`audio/engelsk_full_q4k.wav`](audio/engelsk_full_q4k.wav) | Q4_K_S, engelsk kloning (6,0 % WER) | 33,1 s |
+| [`audio/cosyvoice_engelsk.wav`](audio/cosyvoice_engelsk.wav) | CosyVoice3, engelsk — høres ut som svensk | 31,6 s |
+| [`audio/chatterbox_engelsk.wav`](audio/chatterbox_engelsk.wav) | Chatterbox v3, engelsk — høres ut som norsk | 30,2 s |
 | [`audio/benchmark_small_gpu.wav`](audio/benchmark_small_gpu.wav) | IQ3_XXS, ren TTS (RTF 4,7) | 2,8 s |
 | [`audio/referanse_stemme.wav`](audio/referanse_stemme.wav) | Referanseklippet som ble brukt | 8,0 s |
 
-Alle er 44,1 kHz mono PCM 16-bit.
+Drama 3 er 44,1 kHz, CosyVoice3 og Chatterbox er 24 kHz. Alle mono.
+
+---
+
+---
+
+## Sammenligning med CosyVoice3 og Chatterbox
+
+Alle tre modellene er testet på **samme maskin**, med **samme tekst**, **samme
+referanseklipp** og **samme seed**. Alle lydklippene ligger i `audio/`.
+
+| Modell | Språk | WER | Auto-språk | RTF | Peak RAM |
+|---|---|---|---|---|---|
+| **Drama 3 Q4_K_S** | norsk | **18,2 %** | `no` | 27,5 | 6,7 GB |
+| **Drama 3 Q4_K_S** | norsk | 36,4 % | `no` | 26,3 | 6,9 GB |
+| **CosyVoice3 + LoRA** | norsk | 31,8 % | `no` | **10,8** | ~7 GB |
+| **Chatterbox v3** | norsk | 59,1 % | `no` | 21,8 | — |
+| **Drama 3 IQ3_XXS** | norsk | 59,1 % | `no` | **11,2** | 10,3 GB |
+| **Drama 3 Q4_K_S** | engelsk | **6,0 %** | `en` | 28,8 | 6,9 GB |
+| **CosyVoice3 + LoRA** | engelsk | 11,9 % | **`sv`** | 7,7 | ~7 GB |
+| **Chatterbox v3** | engelsk | 14,9 % | **`no`** | **5,8** | — |
+
+**WER** = ordfeilrate (lavere er bedre). **Auto-språk** = hva Whisper selv
+finner ut i lyden. **RTF** = real-time factor (lavere er bedre, 1,0 = sanntid).
+
+### Aksenten holder ikke
+
+**Auto-språk-kolonnen er det viktigste resultatet.** Når CosyVoice3 og
+Chatterbox skal lese engelsk med en *norsk* referanse, faller de ut av
+engelsk — CosyVoice3 går til **svensk**, Chatterbox til **norsk**. Drama 3
+holder `en`.
+
+Begge modellene er språkbundet til referansen. Det er ønsket når du vil ha
+norsk, og uønsket når du skal ha engelsk. Drama 3 ble trent på 83 språk og
+holder språket uansett.
+
+### Hastighet og pris
+
+| Modell | Norsk (9 s) | Engelsk (33 s) | Disk lest | Størrelse |
+|---|---|---|---|---|
+| **CosyVoice3 + LoRA** | **113 s** | 243 s | 0 | 0,5B (9,1 GB) |
+| **Chatterbox v3** | 164 s | 177 s | 0 | ~1,5 GB |
+| **Drama 3 IQ3_XXS** | 104 s | — | 0 | 9,74 GiB |
+| **Drama 3 Q4_K_S** | 221 s | 953 s | **351 GB** | 21,78 GiB |
+
+CosyVoice3 er 2,4x raskere enn Drama 3 på norsk. Drama 3 Q4_K_S er 3–4x
+dyrere per sekund tale, fordi ekspertene må leses fra disk.
+
+Full analyse med transkripsjoner og F0-målinger:
+[`docs/SAMMENLIGNING.md`](docs/SAMMENLIGNING.md)
+
+---
+
+## Hvordan ekspert-offloading til SSD fungerer
+
+Dette er kjernen i hvorfor Drama 3 i det hele tatt kjører på 16 GB.
+
+### Problemet
+
+Drama 3 veier 21,78 GiB. Macen har 16 GB, og macOS gir bare 12,7 GB til
+Metal. Modellen kan altså ikke ligge i minnet.
+
+Den vanlige løsningen ville vært å la macOS håndtere det — men det er
+**ikke** det som skjer. macOS ville kjørt ut i swap: systemet går i låst
+liten hastighet, og når swap er full, avslutter macOS prosessen **uten
+feilmelding**. Det er nøyaktig det som skjedde i våre første test.
+
+### Løsningen: ekspertene blir liggende på disk
+
+Drama 3 er en **MoE-modell** (Mixture of Experts). 35 milliarder parametere,
+men bare 3 milliarder aktive per ord. Modellen består av:
+
+| Del | Størrelse | Boende? |
+|---|---|---|
+| Oppmerksomhetslag, Gated DeltaNet, routere, KV-cache, MTP-hode | ~1,3 GB | ✅ Metal |
+| Audio-tower | ~2,2 GB | ✅ Metal |
+| Lydkoder (Fish DAC) | 747 MB | ✅ CPU |
+| **De 120 ekspertbankene** | **~17 GB** | ❌ **på disk** |
+
+`fish_drama3.disk_experts=true` gjør at ekspertbankene **ligger igjen i
+GGUF-filen** og bare leses inn i RAM mens de faktisk brukes. Resten av
+modellen ligger fast i minnet hele tiden.
+
+### Slik ser det ut i praksis
+
+```
+  ┌─────────────────────── 16 GB unified memory ───────────────────────┐
+  │                                                                   │
+  │  Metal:  backbone 1,3 GB + tower 2,2 GB  =  3,5 GB (fast, alltid)  │
+  │  CPU:    lydkoder 747 MB                                          │
+  │  RAM:    ekspert-cache 540 MB  (begrenset, 8 spor per lag)         │
+  │                                                                   │
+  │  Målt peak i praksis: 6,9 GB                                       │
+  └───────────────────────────────────────────────────────────────────┘
+                              │
+        leser kun de ekspertene som
+        trengs akkurat nå
+                              ▼
+  ┌────────────────── SSD / NVMe ──────────────────┐
+  │  GGUF-fil, 21,78 GiB                            │
+  │  eksperter leses 351 GB for en 33 s tale        │
+  └─────────────────────────────────────────────────┘
+```
+
+### Hvorfor det er tregt
+
+For hvert lag må runtime-en hente de ekspertene som er valgt for akkurat det
+ordet. Med 8 spor per lag i cachen er treffandelen rundt 25 %. Resten leses
+fra disk.
+
+Målt på en 33 sekunders tale:
+
+| Måltall | Verdi | Betydning |
+|---|---|---|
+| `bytes_read` | 351 GB | Totalt lest fra disk |
+| `read_ms` | 721 s | **75 % av wall-tiden** |
+| `upload_ms` | 66 s | Kopiering til GPU-bufferen |
+| `expert_loads` | 198 352 | Antall ekspertlaster |
+| `cache_hits` | 66 471 | 25 % treffandel |
+
+**Disken er flaskehalsen.** Unified memory hjelper — de hentede ekspertene er
+umiddelbart tilgjengelige for GPU-en uten PCIe-overføring — men selve
+disklesingen tar tid.
+
+### De tre flaggene som styrer dette
+
+```bash
+--session-option fish_drama3.disk_experts=true        # slår på disk-offloading
+--session-option fish_drama3.expert_cache_size=8      # RAM per ekspertspor
+--session-option fish_drama3.cpu_expert_layers=0      # ekspertene kjøres på GPU
+```
+
+| Flagg | Hva det gjør |
+|---|---|
+| `disk_experts=true` | **Selve mekanismen.** Ekspertbankene beholdes i GGUF-filen og leses inn ved bruk. Uten dette må hele modellen ligge i RAM. |
+| `expert_cache_size=N` | Hvor mange eksperter som holdes i RAM om gangen (8–256). Større tall = færre disklesninger, mer RAM. Målt: 8 → 17,7 GB lest, 32 → 11,4 GB lest. |
+| `cpu_expert_layers=N` | Hvor mange av de 40 ekspertlagene som kjøres på **CPU** i stedet for GPU. `0` = alle på GPU. Nærmeste analog til llama.cpp-flagget `--n-cpu-moe`, som **ikke finnes** i audio.cpp. |
+
+To flagg til er nødvendige på en 16 GB Mac:
+
+| Flagg | Hvorfor |
+|---|---|
+| `codec_backend=cpu` | Flytter lydkoderen (747 MB) ut av GPU-minnet. Uten dette dør prosessen. |
+| `codec_encoder_chunk_samples=65536` | Deler referanse-encodingen i biter, slik at toppminnet blir lavere. |
+
+### Alternativet: ikke bruke offloading i det hele tatt
+
+Er du på en Mac med nok RAM — en M3 Ultra med 512 GB, for eksempel — kan du
+bare sette `disk_experts=false`. Da ligger modellen fast i minnet og du får
+full fart. Se sammenligningen mot
+[drama3-mac](https://github.com/JordiPosthumus/drama3-mac) i
+[`docs/RAPPORT.md`](docs/RAPPORT.md): **RTF 0,68 mot 28,8** på vår maskin.
+
+**Regelen er enkel:** trenger du offloading for å få modellen til å passe,
+eller kjører du den på en maskin der den passer?
 
 ---
 
@@ -351,6 +512,8 @@ Metal bygger grafikk-kjernene sine. Det lagres og går raskere neste gang.
 | **pentacoxian-dev/drama3-small-GGUF** | Den lille modellen (IQ3_XXS) | [huggingface.co/pentacoxian-dev/drama3-small-GGUF](https://huggingface.co/pentacoxian-dev/drama3-small-GGUF) |
 | **PrismML-Eng/llama.cpp** | Prism MLs fork. Også nødvendig for Drama 3 i llama.cpp | [github.com/PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) |
 | **fish-speech** | Oppstream for modellen og codecen | [github.com/fishaudio/fish-speech](https://github.com/fishaudio/fish-speech) |
+| **CosyVoice** | Alternativet vi sammenligner mot. 0,5B, norsk LoRA, kjører på CPU | [github.com/FunAudioLLM/CosyVoice](https://github.com/FunAudioLLM/CosyVoice) |
+| **Chatterbox** | Multilingual TTS v3, MPS-støtte, ~1,5 GB | [github.com/resemble-ai/chatterbox](https://github.com/resemble-ai/chatterbox) |
 | **drama3-mac** | MLX-port av Drama 3 for Mac. Raskeste Mac-alternativet, men krever nok RAM til at modellen blir resident (27,3 GB) | [github.com/JordiPosthumus/drama3-mac](https://github.com/JordiPosthumus/drama3-mac) |
 
 ### Alternativer for andre plattformer
